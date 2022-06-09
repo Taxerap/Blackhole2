@@ -65,16 +65,14 @@ main( int argc, char *argv[] )
     // Return result of functions
     int result = 0;
 
-/*
     // Load html content
     if (argc < 2)
     {
         fprintf(stderr, "Specify html file path.\n");
         exit(EXIT_FAILURE);
     }
-*/
 
-    int html_fd = open("./res/status.html", O_RDONLY);
+    int html_fd = open(argv[1], O_RDONLY);
     if (html_fd == -1)
     {
         perror("Failed to open file");
