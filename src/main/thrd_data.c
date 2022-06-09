@@ -15,9 +15,9 @@ Vector await_writings;
 
 // Buffer for receiving client contents
 static
-char *recv_buffer;
+char recv_buffer[65536];
 
-// If the clients mutex is locked by this thread.
+// Tell if the clients mutex is locked by this thread.
 // Used for cleaning up.
 static
 bool mtx_locked;
@@ -30,23 +30,22 @@ DataThreadSignalHandler( int );
 int
 DataThread( [[maybe_unused]] void *arg_unused )
 {
-    bh2_log_info("[Data] data thread is starting.");
+    bh2_log_trace("[Data] data thread is starting.");
     sigaction(SIGINT, &(struct sigaction){ .sa_handler = DataThreadSignalHandler }, NULL);
 
+    // await_writings contains index of clients that need respond.
     await_writings = Vector_CreateS(sizeof(size_t), NULL);
     // Return value of poll().
     int poll_result = 0;
     // Return value of recv() and send().
     ssize_t recv_result = 0, send_result = 0;
-    // Buffer for incoming data.
-    recv_buffer = malloc(sizeof(char) * 65535);
 
     // Lock mutexes and start processing.
     mtx_lock(&clients_mtx);
     mtx_locked = true;
-    atomic_store_explicit(&clients_mtx_locked, true, memory_order_release);
+    atomic_store_explicit(&data_mtx_locked, true, memory_order_release);
 
-    while (!atomic_load(&should_exit))
+    while (!atomic_load_explicit(&should_exit, memory_order_acquire))
     {
         if (clients.length)
         {
@@ -78,7 +77,7 @@ DataThread( [[maybe_unused]] void *arg_unused )
                             close(cl->fd);
                             Vector_Delete(&clients, i);
                             Vector_Delete(&client_pfds, i);
-                            bh2_log_info("[Data] Client hunged up, removing from list. %zu (%zu) clients left.", clients.length, client_pfds.length);
+                            bh2_log_info("[Data] Client hunged up, removing from list. %zu clients left.", clients.length);
                             continue;
                         }
                         if (cl->revents & POLLERR)
@@ -86,7 +85,7 @@ DataThread( [[maybe_unused]] void *arg_unused )
                             close(cl->fd);
                             Vector_Delete(&clients, i);
                             Vector_Delete(&client_pfds, i);
-                            bh2_log_error("[Data] Client got error, removing from list. %zu (%zu) clients left.", clients.length, client_pfds.length);
+                            bh2_log_error("[Data] Client poll() error, removing from list. %zu clients left.", clients.length);
                             continue;
                         }
                         if (cl->revents & POLLIN)
@@ -100,27 +99,25 @@ DataThread( [[maybe_unused]] void *arg_unused )
 
                             bh2_log_info("[Data] POLLIN from Client #%zu.", i);
                             recv_result = recv(cl->fd, recv_buffer, 65535, 0);
-                            if (recv_result >= 0)
-                                recv_buffer[recv_result] = '\0';
 
                             if (recv_result < 0)
                             {
-                                bh2_log_error("[Data] Received -1 byte from #%zu, possible error: %s. %zu (%zu) clients left.", i, strerror(errno), clients.length, client_pfds.length);
                                 close(cl->fd);
                                 Vector_Delete(&clients, i);
                                 Vector_Delete(&client_pfds, i);
+                                bh2_log_error("[Data] Received -1 byte from #%zu, possible error: %s. %zu clients left.", i, strerror(errno), clients.length);
                             }
                             else if (!recv_result)
                             {
                                 close(cl->fd);
                                 Vector_Delete(&clients, i);
                                 Vector_Delete(&client_pfds, i);
-                                bh2_log_info("[Data] Received 0 byte from #%zu. Client hunged up. %zu (%zu) clients left.", i, clients.length, client_pfds.length);
+                                bh2_log_info("[Data] Received 0 byte from #%zu. Client hunged up. %zu clients left.", i, clients.length);
                             }
                             else
                             {
                                 // Record that "I received data (anything) from this client."
-                                bh2_log_info("[Data] Received %zd bytes from #%zu. Data: \n====================\n%s\n==============\n", recv_result, i, recv_buffer);
+                                bh2_log_info("[Data] Received %zd bytes from Client #%zu.", recv_result, i);
 
                                 // I noticed that certain browsers tend to send multiple requests to websites (eg. one for webpage one for icon),
                                 // and since we recv() 65535 bytes at once, it is possible that one recv() contains multiple requests from the same client.
@@ -138,7 +135,7 @@ DataThread( [[maybe_unused]] void *arg_unused )
             if (await_writings.length)
             {
                 bh2_log_info("[Data] Start handling writing.");
-                while(await_writings.length)
+                for (size_t i = 0; i < 14 && await_writings.length; i++)
                 {
                     /*
                 
@@ -154,7 +151,7 @@ DataThread( [[maybe_unused]] void *arg_unused )
                 }
             }
             else
-                bh2_log_info("[Data] No await writings in current cycle with %zu (%zu) clients.", clients.length, client_pfds.length);
+                bh2_log_info("[Data] No await writings in current cycle with %zu clients.", clients.length);
 
             // Check if there's new clients incoming. If so, set conditional variable and wait for
             // main thread to add new clients to the clients vector
@@ -163,24 +160,27 @@ DataThread( [[maybe_unused]] void *arg_unused )
                 // New clients are incoming, wait for main thread to add them
                 bh2_log_info("[Data] Main thread is getting new client...");
                 mtx_locked = false;
+                atomic_store(&data_thread_block, true);
                 cnd_wait(&clients_cnd, &clients_mtx);
                 /*
 
                     Theoretically, we need to deal with spurious wakeup.
                     However, this program only has two threads...
 
-                while (mtx_trylock(&clients_mtx) != thrd_success)
+                if (mtx_trylock(&clients_mtx) != thrd_success)
                     mtx_lock(&clients_mtx);
                 */
+                atomic_store(&data_thread_block, false);
                 mtx_locked = true;
                 // Now that main thread has successfully added clients to the vector, we repeat the data thread
-                bh2_log_info("[Data] Added new client from Main thread.");
+                bh2_log_info("[Data] Added new client from Main thread. New clients count: %zu.", clients.length);
+
             }
         }
         else
         {
-            bh2_log_info("[Data] No client. Data thread sleeping.");
             // If there is no client for us to read, release the mutex and block until main thread adds a client
+            bh2_log_info("[Data] No client. Data thread sleeping.");
             mtx_locked = false;
             atomic_store(&data_thread_block, true);
             cnd_wait(&clients_cnd, &clients_mtx);
@@ -194,19 +194,18 @@ DataThread( [[maybe_unused]] void *arg_unused )
     if (mtx_locked)
         mtx_unlock(&clients_mtx);
     Vector_DestroyS(&await_writings);
-    free(recv_buffer);
 
-    bh2_log_info("[Data] Data thread has ended.");
-    atomic_store_explicit(&data_thread_block, false, memory_order_release);
+    bh2_log_trace("[Data] Data thread has ended.");
+    atomic_store(&data_thread_block, false);
 
-    return 0;
+    return EXIT_SUCCESS;
 }
 
 static
 void
 DataThreadSignalHandler( [[maybe_unused]] int signum_unused )
 {
-    // Received Ctrl+C signal. Ending program.
-    bh2_log_debug("[Data] Caught SIGINT.");
+    // Received Ctrl+C signal, ending program.
+    bh2_log_info("[Data] Caught SIGINT.");
     atomic_store_explicit(&should_exit, true, memory_order_release);
 }

@@ -51,8 +51,12 @@ Module.symvers
 Mkfile.old
 dkms.conf
 
-/bin/
+# Build scripts
 *.sh
+
+# Logs
 *.log
+*.txt
+/bin/
+/.vscode/
 finc
-finc.txt

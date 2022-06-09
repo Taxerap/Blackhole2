@@ -25,9 +25,9 @@
 
 // ----------------------- Concurrency -------------------------------
 
-// Thread handles.
+// Child thread handles.
 extern
-thrd_t main_thread, data_thread;
+thrd_t data_thread;
 
 // The clients waiting and their poll file descriptors.
 extern
@@ -46,11 +46,15 @@ cnd_t clients_cnd;
 
 // Tell if the clients_mtx is locked by the data thread.
 extern
-atomic_bool clients_mtx_locked;
+atomic_bool data_mtx_locked;
 
 // Used by main thread for telling data thread that there are new connections incoming.
 extern
 atomic_bool new_client_incoming;
+
+// Tell if data thread is blocking for condition variable.
+extern
+atomic_bool data_thread_block;
 
 /*
 
@@ -60,19 +64,7 @@ atomic_bool new_client_incoming;
 
 */
 
-// Used by data thread to tell main thread that data thread finished working.
-// This variable has three usages:
-// 1. When start up, tell main thread that data thread has initialized resources needed, and main thread can continue.
-// 2. The "exit message" I mentioned above, which is deprecated.
-// 3. When clean up, tell main thread that data thread had freed all its resources.
-extern
-atomic_bool data_thread_done;
-
-// Tell if data thread is blocking for condition variable.
-extern
-atomic_bool data_thread_block;
-
-// Used by main thread to tell data thread that program should end.
+// Used by signal handlers to tell threads that program should end.
 extern
 atomic_bool should_exit;
 
