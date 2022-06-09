@@ -1,0 +1,18 @@
+{
+    "configurations": [
+        {
+            "name": "gcc",
+            "includePath": [
+                "${workspaceFolder}/vendor/**",
+                "${workspaceFolder}/inc/**"
+            ],
+            "defines": [
+                "BH2_DEBUG",
+                "_POSIX_C_SOURCE"
+            ],
+            "compilerPath": "/usr/bin/gcc",
+            "cStandard": "c17"
+        }
+    ],
+    "version": 4
+}

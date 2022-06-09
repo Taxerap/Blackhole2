@@ -1,0 +1,133 @@
+<!doctype html>
+<html>
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta lang="en-US" />
+
+        <title>Taxerap's Wheel Factory</title>
+
+        <style>
+            *
+            {
+                font-family: "Segoe UI", "Roboto", "Oxygen", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
+                cursor: default
+            }
+
+            a
+            {
+                font-style: italic;
+                text-decoration: none;
+                transition-duration: 0.4s;
+                color: lightgreen
+            }
+            a:hover
+            {
+                color: blue;
+                text-shadow: 0.05em 0.05em skyblue
+            }
+
+            #bulletin_container
+            {
+                margin-top: 12vh;
+                text-align: center
+            }
+
+            #countdown_container
+            {
+                font-family: "Consolas", "Monaco", "Courier New", Courier, monospace;
+                margin-top: 10%;
+                font-size: xx-large;
+                text-align: center;
+                color: green;
+                transition: color 3s;
+                text-shadow: 0.015em 0.015em lightgreen
+            }
+
+            #countdown
+            {
+                font-family: inherit
+            }
+        </style>
+
+        <script>
+            let release_date = new Date(2022, 9, 19, 23, 59, 59).getTime();
+
+            function current_time()
+            {
+                var now = new Date().getTime();
+                var distance = release_date - now;
+                return distance;
+            }
+
+            function set_countdown(distance)
+            {
+                var days    = Math.floor(distance / (1000 * 60 * 60 * 24));
+                var hours   = Math.floor((distance % (1000 * 60 * 60 *24)) / (1000 * 60 * 60));
+                var minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+                var seconds = Math.floor((distance % (1000 * 60)) / 1000);
+
+                document.getElementById("countdown").innerHTML = days + "D " + hours + "H "
+                                                                + minutes + "M " + seconds + "S";
+            }
+
+            function set_done()
+            {
+                document.getElementById("countdown_container").innerHTML = "LOL";
+                document.getElementById("countdown_container").style.marginTop = "18vh";
+            }
+        </script>
+    </head>
+
+    <body>
+        <div id="bulletin_container">
+            <p>Thank you for reaching here.</p>
+            <p>Everything is still under construction, please be patient...</p>
+        </div>
+
+        <div id="countdown_container">
+            Estimated Alpha testing time of []: 19/09/2022 23:59:59 UTC
+            <p></p>
+            <span id="countdown"></span>
+        </div>
+        <script>
+            var cd = document.getElementById("countdown_container");
+            var turning_blue = true;
+
+            function timed_color()
+            {
+                if (turning_blue)
+                {
+                    turning_blue = false;
+                    cd.style.color = "blue";
+                }
+                else
+                {
+                    turning_blue = true;
+                    cd.style.color = "green";
+                }
+            }
+
+            setInterval(timed_color, 4000);
+
+            let current = current_time();
+            if (current < 0)
+                set_done();
+            else
+            {
+                set_countdown(current);
+                var loop = setInterval(function()
+                {
+                    var distance = current_time();
+                    if (distance < 0)
+                    {
+                        clearInterval(loop);
+                        set_done();
+                    }
+                    else
+                        set_countdown(distance);
+                }, 1000);
+            }
+        </script>
+    </body>
+</html>
