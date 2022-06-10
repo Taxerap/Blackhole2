@@ -55,8 +55,8 @@ dkms.conf
 *.sh
 
 # Logs
+/.vscode/
+/bin/
 *.log
 *.txt
-/bin/
-/.vscode/
 finc

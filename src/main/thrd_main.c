@@ -166,7 +166,7 @@ main( int argc, char *argv[] )
 
     // We do not proceed until data thread locks the client mutex.
     // Not using conditional variable here, since it should be very quick...
-    while (!atomic_load_explicit(&data_mtx_locked, memory_order_acquire))
+    while (!atomic_load(&data_mtx_locked))
         thrd_sleep(&(struct timespec){ .tv_sec = 0, .tv_nsec = 1000 * 200 }, NULL);
     bh2_log_trace("[Main] Data thread is up and running.");
 
@@ -179,7 +179,7 @@ main( int argc, char *argv[] )
     socklen_t client_addr_len = sizeof(client_addr);
     uint16_t client_port = 0;
 
-    while (!atomic_load_explicit(&should_exit, memory_order_acquire))
+    while (!atomic_load(&should_exit))
     {
         bh2_log_info("[Main] Waiting for clients...");
         // Block and wait for new client incoming
@@ -191,7 +191,7 @@ main( int argc, char *argv[] )
             continue;
         }
 
-        if (atomic_load_explicit(&should_exit, memory_order_acquire))
+        if (atomic_load(&should_exit))
         {
             bh2_log_debug("[Main] Ending program...");
             break;
@@ -288,5 +288,5 @@ MainThreadSignalHandler( [[maybe_unused]] int signum_unused )
 {
     // Received Ctrl+C signal, ending program.
     bh2_log_info("[Main] Caught SIGINT.");
-    atomic_store_explicit(&should_exit, true, memory_order_release);
+    atomic_store(&should_exit, true);
 }

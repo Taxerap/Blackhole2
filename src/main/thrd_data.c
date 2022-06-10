@@ -43,9 +43,9 @@ DataThread( [[maybe_unused]] void *arg_unused )
     // Lock mutexes and start processing.
     mtx_lock(&clients_mtx);
     mtx_locked = true;
-    atomic_store_explicit(&data_mtx_locked, true, memory_order_release);
+    atomic_store(&data_mtx_locked, true);
 
-    while (!atomic_load_explicit(&should_exit, memory_order_acquire))
+    while (!atomic_load(&should_exit))
     {
         if (clients.length)
         {
@@ -207,5 +207,5 @@ DataThreadSignalHandler( [[maybe_unused]] int signum_unused )
 {
     // Received Ctrl+C signal, ending program.
     bh2_log_info("[Data] Caught SIGINT.");
-    atomic_store_explicit(&should_exit, true, memory_order_release);
+    atomic_store(&should_exit, true);
 }

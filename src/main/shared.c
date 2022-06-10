@@ -15,6 +15,6 @@ const char HTTP_HEAD[] = "HTTP/1.0 503 Service Unavailable\r\n"
                          "Content-Type: text/html; charset=UTF-8\r\n"
                          "Connection: Keep-Alive\r\n"
                          "Keep-Alive: timeout=15, max=1000\r\n"
-                         "Content-Length: 3855\r\n\r\n";
+                         "Content-Length: 3833\r\n\r\n";
 char *html_content;
 size_t html_content_size;
