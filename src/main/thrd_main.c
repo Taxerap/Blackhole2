@@ -201,7 +201,6 @@ main( int argc, char *argv[] )
             Accepted new client. Add its information to clients vector!
         */
 
-        new_client.connect_time = time(NULL);
         if (client_addr.ss_family == AF_INET)
         {
             struct sockaddr_in *in_ptr = (struct sockaddr_in *)&client_addr;
@@ -217,7 +216,7 @@ main( int argc, char *argv[] )
         bh2_log_info("[Main] Accepting new client from <[%s]:%u>.", clinet_addr_str, client_port);
 
         // New client coming, generate information of it
-        new_client.fd = client_fd;
+        new_client.socket_fd = client_fd;
         new_client.addr_len = client_addr_len;
         memcpy(&(new_client.addr), &client_addr, sizeof(client_addr));
 
@@ -259,6 +258,9 @@ main( int argc, char *argv[] )
     // Do not proceed clean up until data thread has finished cleanup.
     thrd_join(data_thread, NULL);
 
+    for (size_t i = 0; i < clients.length; i++)
+        close(((Client *)Vector_PtrAt(&clients, i))->socket_fd);
+
 clean_socket:
     close(server_socket);
     bh2_log_trace("[Main] Closed server socket.");
@@ -284,7 +286,7 @@ clean_multithread:
 
 static
 void
-MainThreadSignalHandler( [[maybe_unused]] int signum_unused )
+MainThreadSignalHandler( int signum_unused )
 {
     // Received Ctrl+C signal, ending program.
     bh2_log_info("[Main] Caught SIGINT.");

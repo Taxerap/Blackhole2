@@ -28,9 +28,9 @@ void
 DataThreadSignalHandler( int );
 
 int
-DataThread( [[maybe_unused]] void *arg_unused )
+DataThread( void *arg_unused )
 {
-    bh2_log_trace("[Data] data thread is starting.");
+    bh2_log_trace("[Data] Data thread is starting.");
     sigaction(SIGINT, &(struct sigaction){ .sa_handler = DataThreadSignalHandler }, NULL);
 
     // await_writings contains index of clients that need respond.
@@ -146,7 +146,7 @@ DataThread( [[maybe_unused]] void *arg_unused )
                     Vector_Pop(&await_writings, &client_id);
 
                     Client *client = Vector_PtrAt(&clients, client_id);
-                    send_result = send(client->fd, html_content, html_content_size, MSG_DONTWAIT);
+                    send_result = send(client->socket_fd, html_content, html_content_size, MSG_DONTWAIT);
                     bh2_log_info("[Data] Written to client %zu, send result: %zu, error: %s.", client_id, send_result, strerror(errno));
                 }
             }
@@ -161,20 +161,17 @@ DataThread( [[maybe_unused]] void *arg_unused )
                 bh2_log_info("[Data] Main thread is getting new client...");
                 mtx_locked = false;
                 atomic_store(&data_thread_block, true);
-                cnd_wait(&clients_cnd, &clients_mtx);
                 /*
 
                     Theoretically, we need to deal with spurious wakeup.
                     However, this program only has two threads...
 
-                if (mtx_trylock(&clients_mtx) != thrd_success)
-                    mtx_lock(&clients_mtx);
                 */
+                cnd_wait(&clients_cnd, &clients_mtx);
                 atomic_store(&data_thread_block, false);
                 mtx_locked = true;
                 // Now that main thread has successfully added clients to the vector, we repeat the data thread
                 bh2_log_info("[Data] Added new client from Main thread. New clients count: %zu.", clients.length);
-
             }
         }
         else
@@ -203,7 +200,7 @@ DataThread( [[maybe_unused]] void *arg_unused )
 
 static
 void
-DataThreadSignalHandler( [[maybe_unused]] int signum_unused )
+DataThreadSignalHandler( int signum_unused )
 {
     // Received Ctrl+C signal, ending program.
     bh2_log_info("[Data] Caught SIGINT.");

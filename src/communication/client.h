@@ -3,23 +3,11 @@
 
 #include <pch.h>
 
-#include "../data/bhash.h"
-
 #include <sys/socket.h>
 
 typedef struct Client
 {
-    /*
-        Unused.
-        Originally used by Blackhole 1, using client's address and port to create unique hash identifier for hash map.
-    */
-    [[deprecated]]
-    BHash uid;
-
-    // For logging only.
-    time_t connect_time;
-
-    int fd;
+    int socket_fd;
     socklen_t addr_len;
     struct sockaddr_storage addr;
     uint16_t port;
